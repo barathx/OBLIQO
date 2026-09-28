@@ -1,0 +1,119 @@
+{
+  "name": "Obliqo — Telegram Source Adapter",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "id": "telegram-trigger-node",
+      "name": "Telegram Trigger (Incoming Messages)",
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-bot-cred",
+          "name": "Telegram Bot Token Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Telegram Message Normalizer & Unsupported Type Filter\nconst item = $input.first().json;\nconst message = item.message || item;\n\n// Safely ignore non-text messages (stickers, voice, video, photos)\nif (!message.text || typeof message.text !== 'string' || message.text.trim() === '') {\n  return [{\n    json: {\n      isValid: false,\n      reason: 'Unsupported Telegram message type (non-text payload)'\n    }\n  }];\n}\n\nconst externalId = String(message.message_id || `tg_${Date.now()}`);\nconst sender = message.from?.username || message.from?.first_name || String(message.from?.id || 'unknown_telegram_user');\nconst content = message.text.trim();\nconst timestamp = message.date ? new Date(message.date * 1000).toISOString() : new Date().toISOString();\nconst chatId = message.chat?.id || null;\nconst chatType = message.chat?.type || 'private';\n\nreturn [{\n  json: {\n    isValid: true,\n    source: 'TELEGRAM',\n    externalId,\n    sender,\n    subject: '',\n    content,\n    timestamp,\n    metadata: {\n      chatId,\n      chatType\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "id": "telegram-normalizer-node",
+      "name": "Normalize Telegram Payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isValid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ],
+      "id": "if-valid-telegram-node",
+      "name": "If Text Message?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.OBLIQO_WEBHOOK_URL || 'http://localhost:5678/webhook/obliqo/message') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": \"{{ $json.source }}\",\n  \"externalId\": \"{{ $json.externalId }}\",\n  \"sender\": \"{{ $json.sender }}\",\n  \"subject\": \"{{ $json.subject }}\",\n  \"content\": \"{{ $json.content }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"metadata\": {{ JSON.stringify($json.metadata) }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        860,
+        220
+      ],
+      "id": "send-telegram-to-webhook-node",
+      "name": "Send to Obliqo Shared Webhook"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger (Incoming Messages)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Telegram Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Telegram Payload": {
+      "main": [
+        [
+          {
+            "node": "If Text Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Text Message?": {
+      "main": [
+        [
+          {
+            "node": "Send to Obliqo Shared Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "1.0.0"
+}

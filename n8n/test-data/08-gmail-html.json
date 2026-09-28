@@ -1,0 +1,9 @@
+{
+  "source": "GMAIL",
+  "externalId": "test-gmail-html-008",
+  "sender": "renewals@insurance.com",
+  "subject": "Policy Expiration Alert",
+  "content": "<div><style>.header { color: red; }</style><h2>Policy Expiration Notice</h2><p>Your vehicle insurance policy #8831 is set to expire on October 5, 2026.</p><p>Renewal premium due: ₹8,500.</p></div>",
+  "timestamp": "2026-09-29T10:00:00+05:30",
+  "metadata": {}
+}

@@ -1,0 +1,10 @@
+{
+  "source": "TELEGRAM",
+  "externalId": "test-telegram-001",
+  "sender": "Service Center Bot",
+  "content": "Your vehicle service is due on October 12. Estimated cost ₹3,000.",
+  "timestamp": "2026-09-29T12:15:00+05:30",
+  "metadata": {
+    "chatId": "tg_chat_88321"
+  }
+}

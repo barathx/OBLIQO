@@ -1,0 +1,10 @@
+{
+  "source": "CALENDAR",
+  "externalId": "calendar-meeting-011",
+  "subject": "Weekly Team Sync",
+  "content": "Weekly team status sync meeting on Zoom.",
+  "timestamp": "2026-09-29T10:00:00+05:30",
+  "metadata": {
+    "calendarId": "primary"
+  }
+}

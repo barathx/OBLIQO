@@ -1,0 +1,13 @@
+{
+  "source": "TELEGRAM",
+  "externalId": "test-telegram-sticker-010",
+  "sender": "FriendBot",
+  "content": "",
+  "timestamp": "2026-09-29T14:30:00+05:30",
+  "metadata": {
+    "chatId": "tg_chat_88321",
+    "sticker": {
+      "file_id": "sticker_xyz_123"
+    }
+  }
+}

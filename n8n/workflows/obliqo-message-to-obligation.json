@@ -1,0 +1,219 @@
+{
+  "name": "Obliqo — Message to Obligation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "obliqo/message",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "id": "webhook-node",
+      "name": "Webhook POST /webhook/obliqo/message"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Message Normalizer & Input Validator\nconst item = $input.first().json;\nconst body = item.body || item;\n\nconst allowedSources = ['GMAIL', 'TELEGRAM', 'CALENDAR', 'DOCUMENT', 'MANUAL'];\n\nconst source = (body.source || 'MANUAL').toUpperCase();\nconst content = body.content ? body.content.trim() : '';\n\nif (!content || content.length < 3) {\n  return [{\n    json: {\n      success: false,\n      processed: false,\n      created: false,\n      message: 'Invalid message payload: missing or empty content'\n    }\n  }];\n}\n\nif (!allowedSources.includes(source)) {\n  return [{\n    json: {\n      success: false,\n      processed: false,\n      created: false,\n      message: `Invalid message payload: source must be one of ${allowedSources.join(', ')}`\n    }\n  }];\n}\n\n// Generate normalized message ID (externalId or fallback hash)\nconst externalId = body.externalId || null;\nconst sender = body.sender || null;\nconst subject = body.subject || null;\nconst timestamp = body.timestamp || new Date().toISOString();\nconst metadata = body.metadata || {};\n\nreturn [{\n  json: {\n    isValid: true,\n    normalizedMessage: {\n      source,\n      externalId,\n      sender,\n      subject,\n      content,\n      timestamp,\n      metadata\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "id": "normalizer-node",
+      "name": "Message Normalizer & Input Validator"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isValid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        640,
+        300
+      ],
+      "id": "if-valid-node",
+      "name": "If Payload Valid?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.OBLIQO_BACKEND_URL || 'http://localhost:3000') + '/api/ai/extract-obligation' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"{{ $json.normalizedMessage.content }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        860,
+        220
+      ],
+      "id": "extract-ai-node",
+      "name": "Extract Obligation (AI API)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.data.isObligation }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        220
+      ],
+      "id": "if-is-obligation-node",
+      "name": "IF: isObligation?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.OBLIQO_BACKEND_URL || 'http://localhost:3000') + '/api/ai/create-obligation' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": \"{{ $('Message Normalizer & Input Validator').first().json.normalizedMessage.content }}\",\n  \"source\": \"{{ $('Message Normalizer & Input Validator').first().json.normalizedMessage.source }}\",\n  \"sourceMessageId\": \"{{ $('Message Normalizer & Input Validator').first().json.normalizedMessage.externalId }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1300,
+        140
+      ],
+      "id": "create-obligation-node",
+      "name": "Create Obligation (Backend API)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Non-Obligation Result\nreturn [{\n  json: {\n    success: true,\n    processed: false,\n    created: false,\n    message: 'No actionable obligation detected',\n    reason: $input.first().json.data?.reason || 'No actionable obligation detected'\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        320
+      ],
+      "id": "non-obligation-response-node",
+      "name": "Format Non-Obligation Result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Creation Response (handles Created vs Duplicate)\nconst backendRes = $input.first().json;\n\nif (backendRes.duplicate) {\n  return [{\n    json: {\n      success: true,\n      processed: true,\n      created: false,\n      duplicate: true,\n      message: 'Duplicate obligation detected',\n      obligation: backendRes.data\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    success: true,\n    processed: true,\n    created: true,\n    duplicate: false,\n    message: 'Obligation created successfully',\n    obligation: backendRes.data\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        140
+      ],
+      "id": "format-creation-response-node",
+      "name": "Format Creation Response"
+    }
+  ],
+  "connections": {
+    "Webhook POST /webhook/obliqo/message": {
+      "main": [
+        [
+          {
+            "node": "Message Normalizer & Input Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message Normalizer & Input Validator": {
+      "main": [
+        [
+          {
+            "node": "If Payload Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Payload Valid?": {
+      "main": [
+        [
+          {
+            "node": "Extract Obligation (AI API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Obligation (AI API)": {
+      "main": [
+        [
+          {
+            "node": "IF: isObligation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: isObligation?": {
+      "main": [
+        [
+          {
+            "node": "Create Obligation (Backend API)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Non-Obligation Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Obligation (Backend API)": {
+      "main": [
+        [
+          {
+            "node": "Format Creation Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "1.0.0"
+}

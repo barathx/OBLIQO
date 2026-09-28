@@ -1,0 +1,95 @@
+{
+  "name": "Obliqo — Gmail Source Adapter",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "readStatus": "unread"
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "id": "gmail-trigger-node",
+      "name": "Gmail Trigger (New/Unread Emails)",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth-cred",
+          "name": "Gmail OAuth2 Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gmail HTML & Content Normalizer\nconst item = $input.first().json;\n\nconst externalId = item.id || item.messageId || `gmail_${Date.now()}`;\nconst sender = item.from?.value?.[0]?.address || item.from || 'unknown@gmail.com';\nconst subject = item.subject || 'No Subject';\nconst rawBody = item.text || item.snippet || item.html || '';\n\n// Strip HTML tags, tracking pixels, and excessive whitespace\nlet cleanContent = rawBody\n  .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;/gi, ' ')\n  .replace(/&amp;/gi, '&')\n  .replace(/&lt;/gi, '<')\n  .replace(/&gt;/gi, '>')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nif (subject && subject !== 'No Subject' && !cleanContent.toLowerCase().includes(subject.toLowerCase())) {\n  cleanContent = `Subject: ${subject}\\n${cleanContent}`;\n}\n\nconst timestamp = item.date ? new Date(item.date).toISOString() : new Date().toISOString();\nconst threadId = item.threadId || null;\nconst labels = item.labelIds || [];\n\nreturn [{\n  json: {\n    source: 'GMAIL',\n    externalId,\n    sender,\n    subject,\n    content: cleanContent,\n    timestamp,\n    metadata: {\n      threadId,\n      labels\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "id": "gmail-normalizer-node",
+      "name": "Normalize Gmail Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.OBLIQO_WEBHOOK_URL || 'http://localhost:5678/webhook/obliqo/message') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": \"{{ $json.source }}\",\n  \"externalId\": \"{{ $json.externalId }}\",\n  \"sender\": \"{{ $json.sender }}\",\n  \"subject\": \"{{ $json.subject }}\",\n  \"content\": \"{{ $json.content }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"metadata\": {{ JSON.stringify($json.metadata) }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        300
+      ],
+      "id": "send-to-shared-webhook-node",
+      "name": "Send to Obliqo Shared Webhook"
+    }
+  ],
+  "connections": {
+    "Gmail Trigger (New/Unread Emails)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Gmail Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Gmail Payload": {
+      "main": [
+        [
+          {
+            "node": "Send to Obliqo Shared Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "1.0.0"
+}

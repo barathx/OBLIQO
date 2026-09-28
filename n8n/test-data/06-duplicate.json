@@ -1,0 +1,11 @@
+{
+  "source": "GMAIL",
+  "externalId": "test-gmail-001",
+  "sender": "insurance@progressive.com",
+  "subject": "Auto Insurance Policy Renewal Notice",
+  "content": "Your car insurance policy expires on October 5, 2026. Renewal amount: ₹8,500.",
+  "timestamp": "2026-09-29T10:30:00+05:30",
+  "metadata": {
+    "policyId": "POL-9921"
+  }
+}

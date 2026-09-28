@@ -1,0 +1,10 @@
+{
+  "source": "CALENDAR",
+  "externalId": "calendar-event-001",
+  "subject": "Driving License Renewal Deadline",
+  "content": "Driving licence renewal deadline is November 3, 2026.",
+  "timestamp": "2026-09-29T14:00:00+05:30",
+  "metadata": {
+    "calendarId": "primary"
+  }
+}

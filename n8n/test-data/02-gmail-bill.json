@@ -1,0 +1,11 @@
+{
+  "source": "GMAIL",
+  "externalId": "test-gmail-002",
+  "sender": "billing@citypower.gov",
+  "subject": "Monthly Electricity Utility Statement",
+  "content": "Your electricity bill of ₹2,450 is due today.",
+  "timestamp": "2026-09-29T11:00:00+05:30",
+  "metadata": {
+    "accountNumber": "ELEC-88231"
+  }
+}

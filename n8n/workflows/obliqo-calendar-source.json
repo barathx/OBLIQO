@@ -1,0 +1,98 @@
+{
+  "name": "Obliqo — Google Calendar Source Adapter",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "id": "calendar-trigger-node",
+      "name": "Google Calendar Trigger (New Events)",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "calendar-oauth-cred",
+          "name": "Google Calendar OAuth2 Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Google Calendar Event Normalizer\nconst item = $input.first().json;\n\nconst externalId = item.id || `cal_${Date.now()}`;\nconst sender = item.organizer?.email || item.creator?.email || 'calendar@google.com';\nconst subject = item.summary || 'Calendar Event';\nconst description = item.description ? item.description.trim() : '';\n\nlet content = subject;\nif (description && !description.includes(subject)) {\n  content = `${subject}\\n${description}`;\n}\n\nconst startTime = item.start?.dateTime || item.start?.date || new Date().toISOString();\nconst endTime = item.end?.dateTime || item.end?.date || null;\nconst location = item.location || null;\nconst calendarId = item.calendarId || 'primary';\n\nreturn [{\n  json: {\n    source: 'CALENDAR',\n    externalId,\n    sender,\n    subject,\n    content,\n    timestamp: new Date(startTime).toISOString(),\n    metadata: {\n      calendarId,\n      location,\n      startTime,\n      endTime\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ],
+      "id": "calendar-normalizer-node",
+      "name": "Normalize Calendar Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.OBLIQO_WEBHOOK_URL || 'http://localhost:5678/webhook/obliqo/message') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": \"{{ $json.source }}\",\n  \"externalId\": \"{{ $json.externalId }}\",\n  \"sender\": \"{{ $json.sender }}\",\n  \"subject\": \"{{ $json.subject }}\",\n  \"content\": \"{{ $json.content }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"metadata\": {{ JSON.stringify($json.metadata) }}\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        300
+      ],
+      "id": "send-calendar-to-webhook-node",
+      "name": "Send to Obliqo Shared Webhook"
+    }
+  ],
+  "connections": {
+    "Google Calendar Trigger (New Events)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Calendar Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Calendar Payload": {
+      "main": [
+        [
+          {
+            "node": "Send to Obliqo Shared Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "1.0.0"
+}

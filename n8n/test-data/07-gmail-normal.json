@@ -1,0 +1,9 @@
+{
+  "source": "GMAIL",
+  "externalId": "test-gmail-lunch-007",
+  "sender": "friend@example.com",
+  "subject": "Lunch tomorrow?",
+  "content": "Hey, are you free for lunch tomorrow at 1 PM?",
+  "timestamp": "2026-09-29T13:00:00+05:30",
+  "metadata": {}
+}
